@@ -6,9 +6,11 @@ import statemachine
 import buzzer
 import config
 
+# default config time -> .json
 delay_pyro_miliseconds = config.get_deployment_timer()
 print(f'Read in a delay of {delay_pyro_miliseconds} ms from the config file')
 
+# states are defined for pyro not for servos
 states = statemachine.Statemachine(PYRO_FIRE_DELAY_MS = delay_pyro_miliseconds)
 
 while True:
