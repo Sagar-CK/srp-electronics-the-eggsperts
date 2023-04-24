@@ -1,6 +1,7 @@
 import time
 import buzzer
 import external
+import readings
 from measure import is_pyro_inserted, is_bw_inserted, is_armed, get_vbat_voltage
 
 class States():
@@ -35,7 +36,7 @@ class Statemachine:
 
         def check_state_transition(self):
             if self.state == States.SYSTEMS_CHECK:
-                # to test remove battery voltage;
+                # for testing we remove this (battery)
                 # or not self._battery_voltage_valid()
                 if not is_pyro_inserted():
                     self.do_state_transition(States.ERROR_MODE)
@@ -77,24 +78,25 @@ class Statemachine:
 
         def do_state_action(self):
             if self.state == States.SYSTEMS_CHECK:
-                external.neopixel_set_rgb(255,0,255)
-                # r = Readings()
-                # r.start_logging()
+                external.neopixel_set_rgb(255,255,255)
+                # readings.start_logging()
             elif self.state == States.ERROR_MODE:
                 self._queue_long_beep()
                 external.neopixel_set_rgb(255,0,0)
             elif self.state == States.IDLE_MODE:
-                external.neopixel_set_rgb(0,0,255)
+                external.neopixel_set_rgb(255,0,0)
             elif self.state == States.PREPERATION_MODE:
                 external.neopixel_set_rgb(255,255,0)
             elif self.state == States.ARMED_MODE:
-                external.neopixel_set_rgb(255,100,0)
+                external.neopixel_set_rgb(255,0,0)
             elif self.state == States.LAUNCHED_MODE:
                 self._queue_short_beep()
-                external.neopixel_set_rgb(0,255,0)
+                # readings.start_logging()
+                external.neopixel_set_rgb(255,0,100)
             elif self.state == States.DEPLOYED_MODE:
                 self._queue_long_beep()
-                external.neopixel_set_rgb(255,30,70)
+                external.neopixel_set_rgb(255,0,255)
+                # readings.start_logging()
                 external.PYRO_DETONATE()
 
         def do_state_transition(self, to_state):
