@@ -1,7 +1,6 @@
 import time
 import buzzer
 import external
-from readings import Readings
 from measure import is_pyro_inserted, is_bw_inserted, is_armed, get_vbat_voltage
 
 class States():
@@ -73,11 +72,11 @@ class Statemachine:
             elif self.state == States.DEPLOYED_MODE:
                 pass
 
+       
+
 
         def do_state_action(self):
             if self.state == States.SYSTEMS_CHECK:
-                r = Readings()
-                r.start_logging()
                 external.neopixel_disable()
             elif self.state == States.ERROR_MODE:
                 self._queue_long_beep()
@@ -98,7 +97,6 @@ class Statemachine:
 
         def do_state_transition(self, to_state):
             state_trans_has_happened = False
-
             if self.state == States.SYSTEMS_CHECK:
                 if to_state == States.ERROR_MODE:
                     self.state = States.ERROR_MODE
