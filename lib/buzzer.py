@@ -1,13 +1,14 @@
 import board
 import pwmio
 import time
+import board
 
 _buzzer_pin = board.BUZZER
 
 _buzzer_current_item = None
 _buzzer_queue = []
 
-#duty cycle is the fraction of the given value divided by 2**16
+#duty cycle is the fraction of the given value divided by 2^ (**)16
 _buzzer = pwmio.PWMOut(_buzzer_pin, duty_cycle=0, frequency=2000, variable_frequency=True)
 
 def _get_time_from_start():
@@ -18,6 +19,7 @@ def _queue_next_note():
         if len(_buzzer_queue) > 0:
                 next_item_to_be_queued = _buzzer_queue.pop()
         else:
+                # No current item (nothing in queue)
                 _buzzer.duty_cycle = 0
                 _buzzer_current_item = None
                 return

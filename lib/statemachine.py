@@ -35,7 +35,9 @@ class Statemachine:
 
         def check_state_transition(self):
             if self.state == States.SYSTEMS_CHECK:
-                if not is_pyro_inserted() or not self._battery_voltage_valid():
+                # to test remove battery voltage;
+                # or not self._battery_voltage_valid()
+                if not is_pyro_inserted():
                     self.do_state_transition(States.ERROR_MODE)
                 elif is_pyro_inserted() and self._battery_voltage_valid():
                     self.do_state_transition(States.IDLE_MODE)
@@ -75,7 +77,9 @@ class Statemachine:
 
         def do_state_action(self):
             if self.state == States.SYSTEMS_CHECK:
-                external.neopixel_disable()
+                external.neopixel_set_rgb(255,0,255)
+                # r = Readings()
+                # r.start_logging()
             elif self.state == States.ERROR_MODE:
                 self._queue_long_beep()
                 external.neopixel_set_rgb(255,0,0)
