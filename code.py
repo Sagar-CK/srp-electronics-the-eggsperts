@@ -7,6 +7,8 @@ import buzzer
 import config
 from readings import Readings
 
+loop_times = 100
+
 # default config time -> .json
 delay_pyro_miliseconds = config.get_deployment_timer()
 print(f'Read in a delay of {delay_pyro_miliseconds} ms from the config file')
@@ -24,6 +26,8 @@ while True:
     states.tick()
     readings+=1
 
-    if(readings == 20):
+    if(readings == loop_times):
         readings = 0
         r.write_measurements()
+        
+    time.sleep(1/loop_times)
