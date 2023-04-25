@@ -77,3 +77,5 @@ def neopixel_set_rgb(r, g, b):
         _pixel[0] = (round(r*BRIGHTNESS),round(g*BRIGHTNESS),round(b*BRIGHTNESS))
 
 
+
+
