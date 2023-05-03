@@ -10,3 +10,9 @@ def get_deployment_timer():
     delay = parsed_jsondata['deployment_delay_in_miliseconds']
 
     return delay
+
+def get_baro_timer():
+    parsed_jsondata = json.loads(open('config.json', 'r').read())
+    delay = parsed_jsondata['baro_apogee_after_miliseconds']
+    
+    return delay

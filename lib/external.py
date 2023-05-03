@@ -60,6 +60,7 @@ def PYRO_DETONATE():
         '''
         This function fires the Pyro!
         '''
+        print("BOOM")
         _pyro_detonate.value = True
 
 def PYRO_RESET():

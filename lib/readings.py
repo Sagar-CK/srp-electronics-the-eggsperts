@@ -4,116 +4,195 @@ import adafruit_bmp280
 import adafruit_mpu6050
 import sdcardio
 import storage
+import time
+import random
+import buzzer
 
 class Readings:
     def __init__(self):
+        self.gyro_lowpass = 0.05
+        self.acc_lowpass = 0.3
+            
+        self.rn = random.randrange(1000,9999)
+
         # Create two arrays to store the data of the BMP280 and MPU6050
         self.bmp280_data = []
         self.mpu6050_data = []
+        self.events_data = []
         
-        self.i2c = board.I2C()
-        self.bmp = adafruit_bmp280.Adafruit_BMP280_I2C(self.i2c, address=0x76)
-        self.mpu = adafruit_mpu6050.MPU6050(self.i2c)
-        
-        self.gyro_lowpass = 0.05
-        self.acc_lowpass = 1
-        
-        self.x = 0.0
-        self.y = 0.0
-        self.z = 0.0
-        
-        self.vx = 0.0
-        self.vy = 0.0
-        self.vz = 0.0
-        
-        self.ax0 = self.mpu.acceleration[0]
-        self.ay0 = self.mpu.acceleration[1]
-        self.az0 = self.mpu.acceleration[2]
-        
-        self.theta_x = 0.0
-        self.theta_y = 0.0
-        self.theta_z = 0.0
-        
-        self.omega_x0 = self.mpu.gyro[0]
-        self.omega_y0 = self.mpu.gyro[1]
-        self.omega_z0 = self.mpu.gyro[2]
+        self.alt_list = []
 
-        # i2c = busio.I2C(board.SCL, board.SDA)
+        try:
+            self.i2c = board.I2C()
+            self.bmp = adafruit_bmp280.Adafruit_BMP280_I2C(self.i2c, address=0x76)
+            self.mpu = adafruit_mpu6050.MPU6050(self.i2c)
+            self.mpu.accelerometer_range = adafruit_mpu6050.Range.RANGE_16_G
 
-        # self.bmp280 = adafruit_bmp280.Adafruit_BMP280_I2C(i2c)
-        # self.bmp280.sea_level_pressure = 1013.25
-        # self.mpu6050 = adafruit_mpu6050.MPU6050(i2c)
+        except OSError as e:
+            print("Failed initial sensor setup", e)
+
+        # Set up SD card
         print("Initializing SD card...")
+        try:
+            # Use the board's primary SPI bus
+            # first one used to be board.SCK, board.MOSI, board.MISO
+            spi = busio.SPI(board.SCK, MOSI=board.MOSI, MISO=board.MISO)
 
-        # Use the board's primary SPI bus
-        # first one used to be board.SCK, board.MOSI, board.MISO
-        # spi = busio.SPI(board.D13, MOSI=board.D11, MISO=board.D12)
+            # For breakout boards, you can choose any GPIO pin that's convenient (in this case digital 6)
+            cs = board.D6
 
-        # # For breakout boards, you can choose any GPIO pin that's convenient:
-        # cs = board.D10
-        # sdcard = sdcardio.SDCard(spi, cs)
-        # vfs = storage.VfsFat(sdcard)
-        # storage.mount(vfs, "/sd")
+            sdcard = sdcardio.SDCard(spi, cs)
+            vfs = storage.VfsFat(sdcard)
+            storage.mount(vfs, "/sd")
+            print("SD Initialized")
+        except OSError as e:
+            print("Failed to initialize SD card:", e)
+
+        # Take average of sensor data over time to set an accurate** 0 value
+        print("Calibrating sensors...")
+        
+        try:
+            self.avg_alt = 0.0
+            self.delta_alt = 0.0
+            
+            pressures = []
+            for i in range(1,20):
+                pressures.append(self.bmp.pressure)
+                time.sleep(0.1)
+            self.bmp.sea_level_pressure = sum(pressures) / len(pressures)
+            print("Succesfully calibrated sensors")
+            
+        except OSError as e:
+            print("Failed to calibrate sensors:", e)
+
+    def baro_detect_apogee(self):
+        if abs(self.delta_alt) <= 1:
+            self.log_event("BARO DETECTS APOGEE")
+            return True
+        return False
 
     def log_all_measurements(self):
+        self.write_events()
         self.log_bmp280_readings()
         self.log_mpu6050_readings()
 
     def write_measurements(self):
         self.write_bmp280_measurements()
         self.write_mpu6050_measurements()
+        self._queue_low_beep(50)
+        
+    def write_events(self):
+        if len(self.events_data) > 0:
+            print("Writing events to file")
+            try:
+                with open(f"/sd/events_{self.rn}.txt", "a") as f:
+                    for event in self.events_data:
+                        f.write("%s, %s\n" % (event))
+                print("Succesfully wrote events")
+                self.events_data = []
+            except OSError as e:
+                print("Error writing event:", e)
+        return
 
     def write_bmp280_measurements(self):
         print("Writing BMP280 measurements to file")
+        if len(self.bmp280_data) > 0:
+            try:
+                with open(f"/sd/bmp280_{self.rn}.txt", "a") as f:
+                    for measurement in self.bmp280_data:
+                        f.write("%s, %s, %s, %s\n" % (measurement))
+                print("Succesfully wrote BMP data")
+            except OSError as e:
+                print("Error writing BMP data:", e)
+            self.bmp280_data = []
         return
-        # with open("/sd/bmp280.txt", "a") as f:
-        #     for measurement in self.bmp280_data:
-        #         f.write(measurement)
-        #         f.write("\n")
 
 
     def write_mpu6050_measurements(self):
-        print("Writing MPU6050 measurements to file (not)")
+        print("Writing MPU6050 measurements to file...")
+        if len(self.mpu6050_data) > 0:
+            try:
+                with open(f"/sd/mpu6050_{self.rn}.txt", "a") as f:
+                    for measurement in self.mpu6050_data:
+                        f.write("%s, %s, %s, %s\n" % (measurement))
+                print("Succesfully wrote MPU data")
+            except OSError as e:
+                print("Error writing MPU data:", e)
+            self.mpu6050_data = []
         return
-        # with open("/sd/mpu6050.txt", "a") as f:
-        #     for measurement in self.mpu6050_data:
-        #         f.write(measurement)
-        #         f.write("\n")
-
+    
+    def log_event(self, event: str):
+        try:
+            self.events_data.append((time.monotonic(), event))
+        except OSError as e:
+            print("Error occured logging events:", e)
 
     def log_bmp280_readings(self):
-        temp = self.bmp.temperature
-        pressure = self.bmp.pressure
+        ## Take a moving average of the altitude
         altitude = self.bmp.altitude
+
+        last_alt = self.avg_alt
+
+        self.alt_list.append(altitude)
         
-        print((temp, pressure, altitude))
-        # self.bmp280_data.append(self.bmp280.temperature, self.bmp280.pressure, self.bmp280.altitude)
+        self.avg_alt = sum(self.alt_list) / len(self.alt_list)
+
+        self.delta_alt = self.avg_alt - last_alt
+
+        self.alt_list = self.alt_list[-10:]
+
+        #print((self.bmp.altitude, self.avg_alt))
+        try:
+            self.bmp280_data.append((time.monotonic(), self.bmp.temperature, self.bmp.pressure, self.bmp.altitude))
+            # print((0,self.bmp.altitude))
+        except OSError as e:
+            print("Error occured reading BMP280:", e)
 
 
     def log_mpu6050_readings(self):
-        ax, ay, az = self.mpu.acceleration
-        omega_x, omega_y, omega_z = self.mpu.gyro
+        #ax, ay, az = self.mpu.acceleration
+        #omega_x, omega_y, omega_z = self.mpu.gyro
+
+        #omega_x_filtered = omega_x if abs(omega_x) >= self.gyro_lowpass else 0.0
+        #omega_y_filtered = omega_y if abs(omega_y) >= self.gyro_lowpass else 0.0
+        #omega_z_filtered = omega_z if abs(omega_z) >= self.gyro_lowpass else 0.0
+
+        #ax_filtered = (ax - self.ax0) * (1/100) if abs(ax) >= self.acc_lowpass else 0.0
+        #ay_filtered = (ay - self.ay0) * (1/100) if abs(ay) >= self.acc_lowpass else 0.0
+        #az_filtered = (az - self.az0) * (1/100) if abs(az) >= self.acc_lowpass else 0.0
+
+        #self.vx += ax_filtered
+        #self.vy += ay_filtered
+        #self.vz += az_filtered
+
+        #self.x += self.vx
+        #self.y += self.vy
+        #self.z += self.vz
+
+        #self.theta_x += omega_x_filtered
+        #self.theta_y += omega_y_filtered
+        #self.theta_z += omega_z_filtered
+
+        # print((time.monotonic(), self.mpu.acceleration, self.mpu.gyro, self.mpu.temperature))
+        try:
+            self.mpu6050_data.append((time.monotonic(), self.mpu.acceleration, self.mpu.gyro, self.mpu.temperature))
+        except OSError as e:
+            print("Error occured reading MPU6050:", e)
+
+    def _queue_short_beep(self):
+        buzzer.append_buzzer_note(2000, 100)
+        buzzer.append_buzzer_wait(100)
+        buzzer.append_buzzer_note(2000, 100)
+        buzzer.append_buzzer_wait(100)
+
+    def _queue_long_beep(self):
+        buzzer.append_buzzer_note(2000, 1000)
+        buzzer.append_buzzer_wait(1000)
         
-        omega_x_filtered = omega_x if abs(omega_x) >= self.gyro_lowpass else 0.0
-        omega_y_filtered = omega_y if abs(omega_y) >= self.gyro_lowpass else 0.0
-        omega_z_filtered = omega_z if abs(omega_z) >= self.gyro_lowpass else 0.0
+    def _queue_low_beep(self, length: int):
+        buzzer.append_buzzer_note(1500, length)
+        buzzer.append_buzzer_wait(length)
         
-        ax_filtered = (ax - self.ax0) * (1/100) if abs(ax) >= self.acc_lowpass else 0.0
-        ay_filtered = (ay - self.ay0) * (1/100) if abs(ay) >= self.acc_lowpass else 0.0
-        az_filtered = (az - self.az0) * (1/100) if abs(az) >= self.acc_lowpass else 0.0
-        
-        self.vx += ax_filtered
-        self.vy += ay_filtered
-        self.vz += az_filtered
-        
-        self.x += self.vx
-        self.y += self.vy
-        self.z += self.vz
-        
-        self.theta_x += omega_x_filtered
-        self.theta_y += omega_y_filtered
-        self.theta_z += omega_z_filtered
-        
-        # print((self.theta_x, self.theta_y, self.theta_z))
-        # self.mpu6050_data.append(self.mpu6050.acceleration, self.mpu6050.gyro, self.mpu6050.temperature)
-      
+    def _queue_high_beep(self, length: int):
+        buzzer.append_buzzer_note(2500, length)
+        buzzer.append_buzzer_wait(length)

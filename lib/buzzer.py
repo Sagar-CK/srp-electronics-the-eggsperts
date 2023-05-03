@@ -1,7 +1,6 @@
 import board
 import pwmio
 import time
-import board
 
 _buzzer_pin = board.BUZZER
 
