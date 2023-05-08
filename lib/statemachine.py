@@ -89,7 +89,7 @@ class Statemachine:
             elif self.state == States.ARMED_MODE:
                 external.neopixel_set_rgb(255,100,0)
             elif self.state == States.LAUNCHED_MODE:
-                self._queue_long_beep()
+                self._queue_high_beep(250)
                 external.neopixel_set_rgb(0,255,0)
             elif self.state == States.DEPLOYED_MODE:
                 self._queue_scream_beep(1500)
@@ -103,56 +103,66 @@ class Statemachine:
                 if to_state == States.ERROR_MODE:
                     self.state = States.ERROR_MODE
                     state_trans_has_happened = True
+                    self.readings.log_event("INIT TO ERROR")
                 elif to_state == States.IDLE_MODE:
                     self.state = States.IDLE_MODE
                     self._queue_short_beep()
                     state_trans_has_happened = True
+                    self.readings.log_event("INIT TO IDLE")
 
             elif self.state == States.IDLE_MODE:
                 if to_state == States.PREPERATION_MODE:
                     self.state = States.PREPERATION_MODE
                     self._queue_short_beep()
                     state_trans_has_happened = True
+                    self.readings.log_event("IDLE TO PREP")
                 elif to_state == States.ERROR_MODE:
                     self.state = States.ERROR_MODE
                     state_trans_has_happened = True
+                    self.readings.log_event("IDLE TO ERROR")
 
             elif self.state == States.PREPERATION_MODE:
                 if to_state == States.ARMED_MODE:
                     self.state = States.ARMED_MODE
                     self._queue_high_beep(1000)
                     state_trans_has_happened = True
+                    self.readings.log_event("PREP TO ARMED")
                 elif to_state == States.IDLE_MODE:
                     self.state = States.IDLE_MODE
                     self._queue_long_beep()
                     state_trans_has_happened = True
+                    self.readings.log_event("PREP TO IDLE")
                 elif to_state == States.ERROR_MODE:
                     self.state = States.ERROR_MODE
                     state_trans_has_happened = True
+                    self.readings.log_event("PREP TO ERROR")
 
             elif self.state == States.ARMED_MODE:
                 if to_state == States.PREPERATION_MODE:
                     self.state = States.PREPERATION_MODE
                     self._queue_long_beep()
                     state_trans_has_happened = True
+                    self.readings.log_event("ARMED TO PREP")
                 elif to_state == States.LAUNCHED_MODE:
                     self.state = States.LAUNCHED_MODE
                     self.LAUNCHED = True
                     self.set_launched_time()
                     state_trans_has_happened = True
                     self._queue_high_beep(1000)
-                    self.readings.log_event("LAUNCH MODE")
+                    self.readings.log_event("LAUNCH MODE TRIGGERED!")
 
             elif self.state == States.LAUNCHED_MODE:
                 if to_state == States.DEPLOYED_MODE:
                     self.state = States.DEPLOYED_MODE
                     state_trans_has_happened = True
+                    self.readings.log_event("PARACHUTE DEPLOYMENT TRIGGERED!")
 
             elif self.state == States.ERROR_MODE:
                 if to_state == States.IDLE_MODE:
                     self.state = States.IDLE_MODE
                     self._queue_short_beep()
                     state_trans_has_happened = True
+                    self.readings.log_event("ERROR TO IDLE")
 
 
             if state_trans_has_happened:
@@ -168,7 +178,7 @@ class Statemachine:
                 return False
             if self.launched_time + self.PYRO_FIRE_DELAY_MS < round(time.monotonic()*1000) or\
                 (self.readings.baro_detect_apogee() and self.launched_time + self.BARO_DETECT_AFTER_MS < round(time.monotonic()*1000)): # The amount of time has passed
-                self.readings.log_event("PYRO DEPLOY TRIGGERED")
+                self.readings.log_event(f"PYRO DEPLOY TRIGGERED AT TIMESTEP {time.monotonic()*1000}ms AT {self.readings.current_altitude}m WITH APOGEE {self.readings.max_altitude}m")
                 return True
             else:
                 return False
