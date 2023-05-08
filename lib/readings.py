@@ -16,7 +16,8 @@ class Readings:
         self.rn = random.randrange(1000,9999)
         self.log_event("STARTING READINGS SET UP")
 
-        # Create two arrays to store the data of the BMP280 and MPU6050
+
+        # Create arrays to store data of each sensor and events
         self.bmp280_data = []
         self.mpu6050_data = []
         self.events_data = []
@@ -49,8 +50,10 @@ class Readings:
             sdcard = sdcardio.SDCard(spi, cs)
             vfs = storage.VfsFat(sdcard)
             storage.mount(vfs, "/sd")
+
             print("SD Initialized")
             self.log_event(f"SUCCESFULLY INITIALIZED SD")
+        
         except OSError as e:
             print("Failed to initialize SD card:", e)
             self.log_event(f"FAILED TO INITIALIZE SD: {e}")
@@ -59,6 +62,7 @@ class Readings:
         print("Calibrating sensors...")
         
         try:
+            # Calibrate BMP280
             self.avg_alt = 0.0
             self.delta_alt = 0.0
             
@@ -67,6 +71,7 @@ class Readings:
                 pressures.append(self.bmp.pressure)
                 time.sleep(0.1)
             self.bmp.sea_level_pressure = sum(pressures) / len(pressures)
+
             print("Succesfully calibrated sensors:", self.bmp.sea_level_pressure)
             self.log_event(f"SUCCESFULLY CALIBRATED SENSORS (SLP {self.bmp.sea_level_pressure})")
             
@@ -75,6 +80,7 @@ class Readings:
             self.log_event(f"FAILED TO CALIBRATE SENSORS: {e}")
 
     def baro_detect_apogee(self):
+        # Get current altitude and compare to previous altitude (max) to see if we are still going up
         if self.current_altitude + 5 < self.max_altitude:
             return True
         return False
@@ -98,19 +104,21 @@ class Readings:
                         f.write("%s, %s\n" % (event))
                 print("Succesfully wrote events")
                 self.events_data = []
+
             except OSError as e:
                 print("Error writing event:", e)
                 self.log_event(f"FAILED TO WRITE EVENTS: {e}")
         return
 
     def write_bmp280_measurements(self):
-        print("Writing BMP280 measurements to file")
         if len(self.bmp280_data) > 0:
+            print("Writing BMP280 measurements to file")
             try:
                 with open(f"/sd/bmp280_{self.rn}.txt", "a") as f:
                     for measurement in self.bmp280_data:
                         f.write("%s, %s, %s, %s\n" % (measurement))
                 print("Succesfully wrote BMP data")
+           
             except OSError as e:
                 print("Error writing BMP data:", e)
                 self.log_event(f"FAILED TO WRITE BMP DATA: {e}")
@@ -119,13 +127,14 @@ class Readings:
 
 
     def write_mpu6050_measurements(self):
-        print("Writing MPU6050 measurements to file...")
         if len(self.mpu6050_data) > 0:
+            print("Writing MPU6050 measurements to file...")
             try:
                 with open(f"/sd/mpu6050_{self.rn}.txt", "a") as f:
                     for measurement in self.mpu6050_data:
                         f.write("%s, %s, %s, %s\n" % (measurement))
                 print("Succesfully wrote MPU data")
+           
             except OSError as e:
                 print("Error writing MPU data:", e)
                 self.log_event(f"FAILED TO WRITE MPU DATA: {e}")
@@ -135,51 +144,26 @@ class Readings:
     def log_event(self, event: str):
         try:
             self.events_data.append((time.monotonic(), event))
+        
         except OSError as e:
             print("Error occured logging events:", e)
             self.log_event(f"FAILED TO LOG EVENT: {e}")
 
     def log_bmp280_readings(self):
-        ## Take a moving average of the altitude
         self.current_altitude = self.bmp.altitude
         
+        # Update max altitude
         if self.current_altitude >= self.max_altitude:
             self.max_altitude = self.current_altitude
 
-        #print((self.bmp.altitude, self.avg_alt))
         try:
             self.bmp280_data.append((time.monotonic(), self.bmp.temperature, self.bmp.pressure, self.bmp.altitude))
-            # print((0,self.bmp.altitude))
         except OSError as e:
             print("Error occured reading BMP280:", e)
             self.log_event(f"FAILED TO READ BMP DATA: {e}")
 
 
     def log_mpu6050_readings(self):
-        #ax, ay, az = self.mpu.acceleration
-        #omega_x, omega_y, omega_z = self.mpu.gyro
-
-        #omega_x_filtered = omega_x if abs(omega_x) >= self.gyro_lowpass else 0.0
-        #omega_y_filtered = omega_y if abs(omega_y) >= self.gyro_lowpass else 0.0
-        #omega_z_filtered = omega_z if abs(omega_z) >= self.gyro_lowpass else 0.0
-
-        #ax_filtered = (ax - self.ax0) * (1/100) if abs(ax) >= self.acc_lowpass else 0.0
-        #ay_filtered = (ay - self.ay0) * (1/100) if abs(ay) >= self.acc_lowpass else 0.0
-        #az_filtered = (az - self.az0) * (1/100) if abs(az) >= self.acc_lowpass else 0.0
-
-        #self.vx += ax_filtered
-        #self.vy += ay_filtered
-        #self.vz += az_filtered
-
-        #self.x += self.vx
-        #self.y += self.vy
-        #self.z += self.vz
-
-        #self.theta_x += omega_x_filtered
-        #self.theta_y += omega_y_filtered
-        #self.theta_z += omega_z_filtered
-
-        # print((time.monotonic(), self.mpu.acceleration, self.mpu.gyro, self.mpu.temperature))
         try:
             self.mpu6050_data.append((time.monotonic(), self.mpu.acceleration, self.mpu.gyro, self.mpu.temperature))
         except OSError as e:

@@ -36,7 +36,8 @@ class Statemachine:
 
         def check_state_transition(self):
             if self.state == States.SYSTEMS_CHECK:
-                if not is_pyro_inserted():
+                # check if pyro inserted and battery voltage is valid (this was removed before)
+                if not is_pyro_inserted() or not self._battery_voltage_valid():
                     self.do_state_transition(States.ERROR_MODE)
                 elif is_pyro_inserted() and self._battery_voltage_valid():
                     self.do_state_transition(States.IDLE_MODE)
@@ -65,16 +66,12 @@ class Statemachine:
                 elif not is_bw_inserted():
                     self.do_state_transition(States.LAUNCHED_MODE)
 
-
             elif self.state == States.LAUNCHED_MODE:
                 if self.check_if_pyro_should_be_fired():
                     self.do_state_transition(States.DEPLOYED_MODE)
 
             elif self.state == States.DEPLOYED_MODE:
                 pass
-
-
-
 
         def do_state_action(self):
             if self.state == States.SYSTEMS_CHECK:
@@ -176,8 +173,9 @@ class Statemachine:
                 return False
             if self.launched_time == 0: # The launchtimer has not been set yet
                 return False
-            if self.launched_time + self.PYRO_FIRE_DELAY_MS < round(time.monotonic()*1000) or\
-                (self.readings.baro_detect_apogee() and self.launched_time + self.BARO_DETECT_AFTER_MS < round(time.monotonic()*1000)): # The amount of time has passed
+            # Case 1: launched time and the pyro fire delay has passed
+            # Case 2: launched time has passed and the baro detect has passed and the time for which a baro detect is allowed to happen has passed
+            if self.launched_time + self.PYRO_FIRE_DELAY_MS < round(time.monotonic()*1000) or (self.readings.baro_detect_apogee() and self.launched_time + self.BARO_DETECT_AFTER_MS < round(time.monotonic()*1000)): # The amount of time has passed
                 self.readings.log_event(f"PYRO DEPLOY TRIGGERED AT TIMESTEP {time.monotonic()*1000}ms AT {self.readings.current_altitude}m WITH APOGEE {self.readings.max_altitude}m")
                 return True
             else:
@@ -212,7 +210,7 @@ class Statemachine:
             buzzer.append_buzzer_note(2500, length)
             buzzer.append_buzzer_wait(length)
 
-        def _battery_voltage_valid(self): # Todo: Make it depend on the battery configuration
+        def _battery_voltage_valid(self): 
             if get_vbat_voltage() > 3.0:
                 return True
             else:
