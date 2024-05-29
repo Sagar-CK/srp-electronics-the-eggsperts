@@ -1,4 +1,4 @@
 {
-   "deployment_delay_in_miliseconds": 20000,
+   "deployment_delay_in_miliseconds": 17000,
    "baro_apogee_after_miliseconds": 9000
 }

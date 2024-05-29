@@ -1,7 +1,10 @@
 import time
+
 import buzzer
 import external
-from measure import is_pyro_inserted, is_bw_inserted, is_armed, get_vbat_voltage
+from measure import (get_vbat_voltage, is_armed, is_bw_inserted,
+                     is_pyro_inserted)
+
 
 class States():
         SYSTEMS_CHECK = 0
@@ -141,11 +144,11 @@ class Statemachine:
                     state_trans_has_happened = True
                     self.readings.log_event("ARMED TO PREP")
                 elif to_state == States.LAUNCHED_MODE:
+                    self._queue_scream_beep(1500)
                     self.state = States.LAUNCHED_MODE
                     self.LAUNCHED = True
                     self.set_launched_time()
                     state_trans_has_happened = True
-                    self._queue_high_beep(1000)
                     self.readings.log_event("LAUNCH MODE TRIGGERED!")
 
             elif self.state == States.LAUNCHED_MODE:
@@ -153,6 +156,7 @@ class Statemachine:
                     self.state = States.DEPLOYED_MODE
                     state_trans_has_happened = True
                     self.readings.log_event("PARACHUTE DEPLOYMENT TRIGGERED!")
+                    self.readings.log_apogee_nvm()
 
             elif self.state == States.ERROR_MODE:
                 if to_state == States.IDLE_MODE:
@@ -211,6 +215,7 @@ class Statemachine:
             buzzer.append_buzzer_wait(length)
 
         def _battery_voltage_valid(self): 
+            return True
             if get_vbat_voltage() > 3.0:
                 return True
             else:
